@@ -1,0 +1,46 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.1.5'
+    id 'io.spring.dependency-management' version '1.1.3'
+}
+
+group = 'com.globalpbx'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '19'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web:3.1.5'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-mail:3.1.5'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.apache.logging.log4j:log4j:3.0.0-alpha1'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    implementation 'org.xerial:sqlite-jdbc:3.42.0.0'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis:2.0.4.RELEASE'
+    implementation 'redis.clients:jedis:2.9.0'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.3'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.1.5'
+}
+
+tasks.named('bootBuildImage') {
+    builder = 'paketobuildpacks/builder-jammy-base:latest'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
