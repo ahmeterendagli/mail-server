@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.globalpbx.mailserver.constant.TableNameConstants;
 import com.globalpbx.mailserver.dto.MailInfoDto;
+import com.globalpbx.mailserver.dto.MailServerInfoDto;
 import com.globalpbx.mailserver.repository.MailServerRepository;
 import com.globalpbx.mailserver.repository.MailServerVersionRepository;
 import jakarta.mail.*;
@@ -39,6 +40,15 @@ public class MailServerService {
     @Value("${spring.mail.password}")
     private String password;
 
+    @Value("${spring.database.mail-servers}")
+    private String mailServers;
+
+    @Value("${spring.database.admin.mail-server}")
+    private String adminMailServer;
+
+    @Value("${spring.database.sent-emails}")
+    private String sentEmailsPath;
+
     private static final Logger logger = LogManager.getLogger(MailServerService.class);
     private final ReentrantLock reentrantLock = new ReentrantLock();
 
@@ -48,7 +58,10 @@ public class MailServerService {
     private final String mailsTable = TableNameConstants.MAILS;
 
     private final String versionTable = TableNameConstants.VERSIONS;
+    private final String mailServersTable = TableNameConstants.MAIL_SERVERS;
+    private final String adminMailServerTable = TableNameConstants.ADMIN_MAIL_SERVER;
 
+    private Connection connection;
     private MailServerRepository mailServerRepository;
     private MailServerVersionRepository mailServerVersionRepository;
 
@@ -93,23 +106,26 @@ public class MailServerService {
 
             Properties props = new Properties();
 
-            props.put("mail.smtp.auth", "true");
-            props.put("mail.smtp.starttls.enable", "true");
-            props.put("mail.smtp.host", "smtp.gmail.com");
-            props.put("mail.smtp.port", "587");
-
-
-//            props.put("mail.smtp.host", "smtp.gmail.com");
-//            props.put("mail.smtp.port", "465");
-//            props.put("mail.smtp.auth", "true");
-//            props.put("mail.smtp.ssl.enable", "true");
-//            props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
-//            props.put("mail.smtp.socketFactory.fallback","false");
+            if (mailInfoDto.getSecurityLayer().trim()
+                    .equalsIgnoreCase("TLS")) {
+                props.put("mail.smtp.auth", "true");
+                props.put("mail.smtp.starttls.enable", "true");
+                props.put("mail.smtp.host", mailInfoDto.getSmtpServerAddress());
+                props.put("mail.smtp.port", mailInfoDto.getSmtpServerPort());
+            } else if (mailInfoDto.getSecurityLayer().trim()
+                    .equalsIgnoreCase("SSL")) {
+                props.put("mail.smtp.host", mailInfoDto.getSmtpServerAddress());
+                props.put("mail.smtp.port", mailInfoDto.getSmtpServerPort());
+                props.put("mail.smtp.auth", "true");
+                props.put("mail.smtp.ssl.enable", "true");
+                props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+                props.put("mail.smtp.socketFactory.fallback", "false");
+            }
 
 
             Session session = Session.getInstance(props, new Authenticator() {
                 protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(username, password);
+                    return new PasswordAuthentication(mailInfoDto.getMailAddress(), mailInfoDto.getMailPassword());
                 }
             });
 
@@ -118,13 +134,13 @@ public class MailServerService {
 
                 MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
 
-                mimeMessageHelper.setFrom(new InternetAddress(username));
+                mimeMessageHelper.setFrom(new InternetAddress(mailInfoDto.getMailAddress()));
                 mimeMessageHelper.setTo(mailInfoDto.getRecipient());
                 mimeMessageHelper.setSubject(mailInfoDto.getSubject());
-                if(mailInfoDto.getIsHtml() == null) {
+                if (mailInfoDto.getIsHtml() == null) {
                     mailInfoDto.setIsHtml(false);
                 }
-                mimeMessageHelper.setText(mailInfoDto.getBody(),mailInfoDto.getIsHtml());
+                mimeMessageHelper.setText(mailInfoDto.getBody(), mailInfoDto.getIsHtml());
                 Transport.send(message);
 
                 MailInfoDto savedMail = mailServerRepository.saveMail(connection, mailInfoDto);
@@ -171,7 +187,6 @@ public class MailServerService {
     public void mailSendAndTransferDatabase() throws JsonProcessingException, ClassNotFoundException, SQLException {
         while (executor.getPoolSize() - executor.getActiveCount() != 0) {
             String mail = processQueue();
-            Connection connection;
             if (mail == null) {
                 logger.info("queue is empty");
                 break;
@@ -183,7 +198,7 @@ public class MailServerService {
             Class.forName(databaseUrl);
 
             // SQLite db connection has been created
-            connection = DriverManager.getConnection(storedMailInfo.getPath());
+            connection = DriverManager.getConnection(sentEmailsPath);
 
             logger.info("You have successfully connected to the SQLite database.");
 
@@ -208,10 +223,51 @@ public class MailServerService {
         switch (tableName) {
             case mailsTable -> mailServerRepository.createMailsTable(connection);
             case versionTable -> mailServerVersionRepository.createVersionTable(connection);
+            case mailServersTable -> mailServerRepository.createMailServersTable(connection);
+            case adminMailServerTable -> mailServerRepository.createAdminMailServerTable(connection);
             default -> {
                 logger.error("Unsupported table name: " + tableName);
                 throw new IllegalArgumentException("Unsupported table name: " + tableName);
             }
         }
+    }
+
+    public String addMailServer(List<MailServerInfoDto> mailServerInfoDtos) throws ClassNotFoundException, SQLException {
+        // SQLite JDBC driver has been created
+        Class.forName(databaseUrl);
+
+        // SQLite db connection has been created
+        connection = DriverManager.getConnection(mailServers);
+
+        logger.info("You have successfully connected to the SQLite database.");
+
+        createTable(connection, mailServersTable);
+
+
+        for (MailServerInfoDto mailServerInfoDto : mailServerInfoDtos) {
+            MailServerInfoDto savedMailServerInfo = mailServerRepository.saveMailServer(connection, mailServerInfoDto);
+            logger.info("saved mail server info -> " + savedMailServerInfo);
+        }
+        return mailServerInfoDtos.size() == 1 ? "mail server added successfully" : "mail servers added successfully";
+    }
+
+    public String createAdminMailServer(MailServerInfoDto mailServerInfoDto) throws SQLException, ClassNotFoundException {
+
+        // SQLite JDBC driver has been created
+        Class.forName(databaseUrl);
+
+        // SQLite db connection has been created
+        connection = DriverManager.getConnection(adminMailServer);
+
+        logger.info("You have successfully connected to the SQLite database.");
+
+        createTable(connection, adminMailServerTable);
+
+        mailServerRepository.checkAndMakePassiveAdminMailServer(connection);
+
+        MailServerInfoDto savedMailServerInfo = mailServerRepository.saveAdminMailServer(connection, mailServerInfoDto);
+        logger.info("saved admin mail server info -> " + savedMailServerInfo);
+
+        return "admin mail server created successfully";
     }
 }

@@ -13,24 +13,33 @@ import java.time.LocalDateTime;
 @Builder
 public class MailInfoDto{
     private long id;
-    private String path;
     private float versionNumber;
     private String recipient;
     private String subject;
     private String body;
     private LocalDateTime sendTime;
     private Boolean isHtml;
+    private String mailAddress;
+    private String mailPassword;
+    private String smtpServerAddress;
+    private String smtpServerPort;
+    private String securityLayer;
 
     @Override
     public String toString() {
         return "MailInfoDto{" +
                 "id=" + id +
-                ", path='" + path + '\'' +
                 ", versionNumber=" + versionNumber +
                 ", recipient='" + recipient + '\'' +
                 ", subject='" + subject + '\'' +
                 ", body='" + body + '\'' +
                 ", sendTime=" + sendTime +
+                ", isHtml=" + isHtml +
+                ", mailAddress='" + mailAddress + '\'' +
+                ", mailPassword='" + mailPassword + '\'' +
+                ", smtpServerAddress='" + smtpServerAddress + '\'' +
+                ", smtpServerPort='" + smtpServerPort + '\'' +
+                ", securityLayer='" + securityLayer + '\'' +
                 '}';
     }
 }
