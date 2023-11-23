@@ -88,8 +88,8 @@ public class MailServerService {
             }
 
 
-            String savedVersion = mailServerVersionRepository.saveVersion(connection, mailInfoDto);
-            logger.info(savedVersion);
+            mailServerVersionRepository.saveVersion(connection, mailInfoDto);
+
 
             Properties props = new Properties();
 

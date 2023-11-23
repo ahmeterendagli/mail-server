@@ -43,7 +43,7 @@ public class MailServerVersionRepository {
         return versionList;
     }
 
-    public String saveVersion(Connection connection, MailInfoDto mailInfoDto) throws SQLException {
+    public void saveVersion(Connection connection, MailInfoDto mailInfoDto) throws SQLException {
         String selectQueryFromVersionTable = "SELECT * FROM " + TableNameConstants.VERSIONS + " WHERE version_number = ?";
         PreparedStatement preparedStatementSelect = connection.prepareStatement(selectQueryFromVersionTable);
         preparedStatementSelect.setString(1, String.valueOf(mailInfoDto.getVersionNumber()));
@@ -51,7 +51,7 @@ public class MailServerVersionRepository {
         ResultSet resultSet = preparedStatementSelect.executeQuery();
 
         if (resultSet.next()) {
-            return "Version number already exists: " + mailInfoDto.getVersionNumber();
+            logger.info("Version number already exists: " + mailInfoDto.getVersionNumber());
         } else {
             String insertQueryToVersionTable = "INSERT INTO " + TableNameConstants.VERSIONS + " (version_number) VALUES (?)";
             PreparedStatement preparedStatementVersionTable = connection.prepareStatement(insertQueryToVersionTable);
@@ -59,7 +59,7 @@ public class MailServerVersionRepository {
             preparedStatementVersionTable.setString(1, String.valueOf(mailInfoDto.getVersionNumber()));
 
             preparedStatementVersionTable.executeUpdate();
-            return "Version added successfully! -> " + mailInfoDto.getVersionNumber();
+            logger.info("Version added successfully! -> " + mailInfoDto.getVersionNumber());
         }
     }
 
