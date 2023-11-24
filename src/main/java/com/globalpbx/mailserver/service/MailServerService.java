@@ -85,6 +85,7 @@ public class MailServerService {
     @Transactional
     public void sendMailWithRedis(MailInfoDto mailInfoDto, Connection connection) {
         logger.info("Entry is -> " + mailInfoDto);
+        Connection finalConnection = connection;
         reentrantLock.lock();
         try {
             String versionNumber = mailServerVersionRepository.findLastVersion(connection);
@@ -105,6 +106,21 @@ public class MailServerService {
 
 
             Properties props = new Properties();
+
+            if(mailInfoDto.getMailAddress() == null) {
+                connection = DriverManager.getConnection(adminMailServer);
+                MailInfoDto activeAdminMailServer = mailServerRepository.findActiveAdminMailServer(connection);
+                if(activeAdminMailServer != null) {
+                    mailInfoDto.setMailAddress(activeAdminMailServer.getMailAddress());
+                    mailInfoDto.setMailPassword(activeAdminMailServer.getMailPassword());
+                    mailInfoDto.setSmtpServerAddress(activeAdminMailServer.getSmtpServerAddress());
+                    mailInfoDto.setSmtpServerPort(activeAdminMailServer.getSmtpServerPort());
+                    mailInfoDto.setSecurityLayer(activeAdminMailServer.getSecurityLayer());
+                } else {
+                    logger.error("There is no active mail server");
+                    return;
+                }
+            }
 
             if (mailInfoDto.getSecurityLayer().trim()
                     .equalsIgnoreCase("TLS")) {
@@ -143,7 +159,7 @@ public class MailServerService {
                 mimeMessageHelper.setText(mailInfoDto.getBody(), mailInfoDto.getIsHtml());
                 Transport.send(message);
 
-                MailInfoDto savedMail = mailServerRepository.saveMail(connection, mailInfoDto);
+                MailInfoDto savedMail = mailServerRepository.saveMail(finalConnection, mailInfoDto);
                 logger.info("Saved mail -> " + savedMail);
                 logger.info("Email sent successfully.");
 
@@ -160,6 +176,14 @@ public class MailServerService {
             if (connection != null) {
                 try {
                     connection.close();
+                } catch (SQLException e) {
+                    logger.error(e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+            if (finalConnection != null) {
+                try {
+                    finalConnection.close();
                 } catch (SQLException e) {
                     logger.error(e.getMessage());
                     e.printStackTrace();

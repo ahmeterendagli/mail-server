@@ -2,6 +2,7 @@ package com.globalpbx.mailserver.repository;
 
 import com.globalpbx.mailserver.constant.MailsColumnName;
 import com.globalpbx.mailserver.constant.TableNameConstants;
+import com.globalpbx.mailserver.constant.VersionsColumnName;
 import com.globalpbx.mailserver.dto.MailInfoDto;
 import com.globalpbx.mailserver.dto.MailServerInfoDto;
 import org.apache.logging.log4j.LogManager;
@@ -158,5 +159,26 @@ public class MailServerRepository {
         } else {
             System.out.println("No data found in the table.");
         }
+    }
+
+    public MailInfoDto findActiveAdminMailServer(Connection connection) throws SQLException {
+        String selectLastRowQuery = "SELECT * FROM " + TableNameConstants.ADMIN_MAIL_SERVER + " ORDER BY rowid DESC LIMIT 1";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectLastRowQuery);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+            if (resultSet.next()) {
+                long id = resultSet.getLong("id");
+                String mailAddress = resultSet.getString("mail_address");
+                String mailPassword = resultSet.getString("mail_password");
+                String smtpServerAddress = resultSet.getString("smtp_server_address");
+                String smtpServerPort = resultSet.getString("smtp_server_port");
+                String securityLayer = resultSet.getString("security_layer");
+
+                return new MailInfoDto(id, -1f,null,
+                        null,null
+                        ,null,false,mailAddress, mailPassword,
+                        smtpServerAddress, smtpServerPort,securityLayer);
+            }
+        }
+        return null;
     }
 }

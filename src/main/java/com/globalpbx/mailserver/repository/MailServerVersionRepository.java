@@ -14,6 +14,7 @@ import java.util.List;
 @Repository
 public class MailServerVersionRepository {
     private static final Logger logger = LogManager.getLogger(MailServerVersionRepository.class);
+
     public void createVersionTable(Connection connection) {
 
         String createTableSQL = "create table if not exists  " + TableNameConstants.VERSIONS + " (id INTEGER PRIMARY KEY, version_number FLOAT)";
