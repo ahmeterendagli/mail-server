@@ -34,12 +34,6 @@ public class MailServerService {
     @Value("${sqlite.database.url}")
     private String databaseUrl;
 
-    @Value("${spring.mail.username}")
-    private String username;
-
-    @Value("${spring.mail.password}")
-    private String password;
-
     @Value("${spring.database.mail-servers}")
     private String mailServers;
 
